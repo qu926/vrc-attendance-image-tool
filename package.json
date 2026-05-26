@@ -1,0 +1,48 @@
+{
+  "name": "vrc-attendance-image-tool",
+  "version": "1.0.0",
+  "description": "VRC event attendance image tool",
+  "main": "electron-main.js",
+  "private": false,
+  "scripts": {
+    "start": "electron .",
+    "test": "node tests/check-static-app.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "vrc",
+    "vrchat",
+    "attendance",
+    "image",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.vrcattendance.imagetool",
+    "productName": "VRC Attendance Image Tool",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "app.js",
+      "electron-main.js",
+      "README.md",
+      "LICENSE",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
+  }
+}

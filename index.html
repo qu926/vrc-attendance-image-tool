@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VRCイベント出席画像ツール</title>
+    <link rel="stylesheet" href="styles.css?v=20260526-20members">
+    <script src="app.js?v=20260526-20members" defer></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="app-title">
+        <span class="app-mark" aria-hidden="true">VRC</span>
+        <div>
+          <h1>VRCイベント出席画像ツール</h1>
+          <p>X投稿用の出席メンバー画像を、全体用と各インスタンス用に作成します。</p>
+        </div>
+      </div>
+      <div class="header-actions" aria-label="データ操作">
+        <button id="sampleBtn" class="btn secondary" type="button">サンプル</button>
+        <button id="saveDraftBtn" class="btn secondary" type="button">下書き保存</button>
+        <button id="loadDraftBtn" class="btn secondary" type="button">下書き読込</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="settings-panel" aria-label="画像とデータの設定">
+        <section class="panel-section">
+          <div class="section-heading">
+            <h2>投稿画像</h2>
+          </div>
+
+          <div class="field-stack">
+            <label class="field">
+              <span>タイトル</span>
+              <input id="titleInput" type="text" placeholder="例: 週末カフェ交流会">
+            </label>
+
+            <label class="field">
+              <span>サブタイトル</span>
+              <input id="subtitleInput" type="text" placeholder="例: Group Join / Friends+">
+            </label>
+
+            <label class="field">
+              <span>開催日</span>
+              <input id="dateInput" type="date">
+            </label>
+
+            <label class="field">
+              <span>補足メモ</span>
+              <textarea id="noteInput" rows="3" placeholder="例: 途中参加OK / 撮影タイムあり"></textarea>
+            </label>
+          </div>
+
+          <div class="control-grid">
+            <label class="field">
+              <span>テンプレート</span>
+              <select id="templateSelect">
+                <option value="clean">クリーン</option>
+                <option value="night">ナイト</option>
+                <option value="pop">ポップ</option>
+                <option value="minimal">ミニマル</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>画像サイズ</span>
+              <select id="canvasSizeSelect">
+                <option value="1600x900">横長 1600 x 900</option>
+                <option value="1200x675">横長 1200 x 675</option>
+                <option value="1080x1080">正方形 1080 x 1080</option>
+                <option value="1080x1350">縦長 1080 x 1350</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>配置</span>
+              <select id="layoutSelect">
+                <option value="instance-poster">インスタンス別ポスター</option>
+                <option value="two-column">2列</option>
+                <option value="stacked">上下</option>
+                <option value="compact">まとめ表示</option>
+              </select>
+            </label>
+
+            <label class="field color-field">
+              <span>アクセント色</span>
+              <input id="accentColor" type="color" value="#1f8a70">
+            </label>
+          </div>
+
+          <label class="field file-field">
+            <span>背景画像</span>
+            <input id="backgroundInput" type="file" accept="image/*">
+          </label>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-heading">
+            <h2>メンバー画像</h2>
+          </div>
+          <label class="field file-drop">
+            <span>新人・参加者を追加</span>
+            <input id="addPeopleInput" type="file" accept="image/*" multiple>
+          </label>
+          <p class="hint">複数画像を選ぶと、ファイル名からメンバー名を作ります。名前は追加後に編集できます。</p>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-heading">
+            <h2>バックアップ</h2>
+          </div>
+          <div class="button-row">
+            <button id="exportJsonBtn" class="btn secondary" type="button">JSON書き出し</button>
+            <label class="btn secondary import-button" for="importJsonInput">JSON読み込み</label>
+            <input id="importJsonInput" class="visually-hidden" type="file" accept="application/json,.json">
+          </div>
+          <button id="clearAllBtn" class="btn danger full-width" type="button">全データをクリア</button>
+        </section>
+      </aside>
+
+      <section class="people-panel" aria-label="メンバーと出席割当">
+        <div class="section-heading main-heading">
+          <div>
+            <h2>出席メンバー</h2>
+            <p>1インスタンス10〜20人前後を目安に、保存したい単位へ振り分けます。</p>
+          </div>
+          <button id="resetAssignmentBtn" class="btn secondary" type="button">配置リセット</button>
+        </div>
+
+        <label class="search-box">
+          <span class="search-icon" aria-hidden="true">検索</span>
+          <input id="searchInput" type="search" placeholder="名前で絞り込み">
+        </label>
+
+        <section class="member-library" aria-label="登録メンバー">
+          <div class="list-header compact-header">
+            <div>
+              <h3>登録メンバー</h3>
+              <p>画像・名前・所属を確認できます。</p>
+            </div>
+            <span class="count-badge" data-count-for="peopleGrid">0名</span>
+          </div>
+          <div id="peopleGrid" class="people-grid"></div>
+        </section>
+
+        <div class="assignment-board">
+          <section class="list-column instance-column" aria-labelledby="instance1Heading">
+            <div class="list-header">
+              <div>
+                <h3 id="instance1Heading">インスタンス 1</h3>
+                <p>1つ目の集合先</p>
+              </div>
+              <span class="count-badge" data-count-for="instance1List">0名</span>
+            </div>
+            <ul id="instance1List" class="person-list" aria-label="インスタンス1の出席者"></ul>
+          </section>
+
+          <section class="list-column instance-column" aria-labelledby="instance2Heading">
+            <div class="list-header">
+              <div>
+                <h3 id="instance2Heading">インスタンス 2</h3>
+                <p>2つ目の集合先</p>
+              </div>
+              <span class="count-badge" data-count-for="instance2List">0名</span>
+            </div>
+            <ul id="instance2List" class="person-list" aria-label="インスタンス2の出席者"></ul>
+          </section>
+
+          <section class="list-column unassigned-column" aria-labelledby="unassignedHeading">
+            <div class="list-header">
+              <div>
+                <h3 id="unassignedHeading">未配置</h3>
+                <p>まだ画像に載せない候補</p>
+              </div>
+              <span class="count-badge" data-count-for="unassignedList">0名</span>
+            </div>
+            <ul id="unassignedList" class="person-list" aria-label="未配置のメンバー"></ul>
+          </section>
+        </div>
+      </section>
+
+      <aside class="preview-panel" aria-label="PNGプレビューと出力">
+        <div class="section-heading">
+          <div>
+            <h2>プレビュー</h2>
+            <p>全体画像とインスタンス別画像を確認し、必要なPNGを個別に保存できます。</p>
+          </div>
+        </div>
+
+        <div class="canvas-frame">
+          <canvas id="previewCanvas" width="1600" height="900" aria-label="X投稿用画像プレビュー"></canvas>
+        </div>
+
+        <div class="preview-actions">
+          <button id="downloadBtn" class="btn primary" type="button">全体PNGを保存</button>
+          <button id="downloadInstance1Btn" class="btn secondary" type="button">1インスタンスPNG</button>
+          <button id="downloadInstance2Btn" class="btn secondary" type="button">2インスタンスPNG</button>
+        </div>
+
+        <div id="statusMessage" class="status-message" role="status" aria-live="polite">
+          メンバー画像を追加して、保存するインスタンスへ振り分けてください。
+        </div>
+      </aside>
+    </main>
+  </body>
+</html>
