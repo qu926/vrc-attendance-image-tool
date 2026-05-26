@@ -198,6 +198,16 @@ check("selected assignment button style exists", () => {
   assert(css.includes(".mini-btn.is-selected"), "styles.css should style selected assignment buttons");
 });
 
+check("member order controls exist", () => {
+  const js = readText("app.js");
+  const css = readText("styles.css");
+  assert(hasFunction(js, "reorderPerson"), "app.js should include reorderPerson");
+  assert(hasFunction(js, "canReorderPerson"), "app.js should include canReorderPerson");
+  assert(js.includes("掲載順を上げる"), "app.js should include an up order control");
+  assert(js.includes("掲載順を下げる"), "app.js should include a down order control");
+  assert(css.includes(".mini-btn:disabled"), "styles.css should style disabled order controls");
+});
+
 check("styles.css contains core layout and preview styles", () => {
   const css = readText("styles.css");
   assert(/\.workspace\b/.test(css), ".workspace style is missing");

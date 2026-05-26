@@ -494,6 +494,11 @@ button {
   font-size: 0.78rem;
 }
 
+.mini-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
 .mini-btn.is-danger {
   color: var(--danger);
   background: var(--danger-soft);

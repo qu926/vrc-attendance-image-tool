@@ -303,6 +303,12 @@
     actions.appendChild(actionButton("2", "インスタンス2へ移動", function () {
       movePerson(person.id, "instance2");
     }, false, person.assignment === "instance2"));
+    actions.appendChild(actionButton("↑", "掲載順を上げる", function () {
+      reorderPerson(person.id, -1);
+    }, false, false, !canReorderPerson(person.id, -1)));
+    actions.appendChild(actionButton("↓", "掲載順を下げる", function () {
+      reorderPerson(person.id, 1);
+    }, false, false, !canReorderPerson(person.id, 1)));
     actions.appendChild(actionButton("削除", "削除", function () {
       removePerson(person.id);
     }, true));
@@ -379,6 +385,12 @@
         movePerson(person.id, "instance2");
       }));
     }
+    actions.appendChild(actionButton("↑", "この一覧で掲載順を上げる", function () {
+      reorderPerson(person.id, -1, currentAssignment);
+    }, false, false, !canReorderPerson(person.id, -1, currentAssignment)));
+    actions.appendChild(actionButton("↓", "この一覧で掲載順を下げる", function () {
+      reorderPerson(person.id, 1, currentAssignment);
+    }, false, false, !canReorderPerson(person.id, 1, currentAssignment)));
 
     item.appendChild(img);
     item.appendChild(name);
@@ -386,7 +398,7 @@
     return item;
   }
 
-  function actionButton(label, title, handler, danger, selected) {
+  function actionButton(label, title, handler, danger, selected, disabled) {
     var button = document.createElement("button");
     button.type = "button";
     button.className = danger ? "mini-btn is-danger" : "mini-btn";
@@ -399,7 +411,11 @@
     button.textContent = label;
     button.title = title || label;
     button.setAttribute("aria-label", title || label);
-    button.addEventListener("click", handler);
+    if (disabled) {
+      button.disabled = true;
+    } else {
+      button.addEventListener("click", handler);
+    }
     return button;
   }
 
@@ -462,6 +478,46 @@
     if (!person) return;
     person.assignment = normalizeAssignment(assignment);
     renderAll((person.name || "メンバー") + "を" + assignmentLabel(person.assignment) + "へ移動しました。", "success");
+  }
+
+  function reorderPerson(id, direction, assignmentScope) {
+    var person = findPerson(id);
+    var currentIndex = state.people.findIndex(function (item) {
+      return item.id === id;
+    });
+    var indices = orderIndices(assignmentScope);
+    var position = indices.indexOf(currentIndex);
+    var nextPosition = position + direction;
+    if (!person || position < 0 || nextPosition < 0 || nextPosition >= indices.length) return;
+
+    var fromIndex = indices[position];
+    var toIndex = indices[nextPosition];
+    var target = state.people[toIndex];
+    state.people[toIndex] = state.people[fromIndex];
+    state.people[fromIndex] = target;
+    renderAll((person.name || "メンバー") + "の掲載順を変更しました。", "success");
+  }
+
+  function canReorderPerson(id, direction, assignmentScope) {
+    var currentIndex = state.people.findIndex(function (person) {
+      return person.id === id;
+    });
+    if (currentIndex < 0) return false;
+    var indices = orderIndices(assignmentScope);
+    var position = indices.indexOf(currentIndex);
+    var nextPosition = position + direction;
+    return position >= 0 && nextPosition >= 0 && nextPosition < indices.length;
+  }
+
+  function orderIndices(assignmentScope) {
+    var normalizedScope = assignmentScope ? normalizeAssignment(assignmentScope) : "";
+    var indices = [];
+    state.people.forEach(function (person, index) {
+      if (!normalizedScope || person.assignment === normalizedScope) {
+        indices.push(index);
+      }
+    });
+    return indices;
   }
 
   function removePerson(id) {
