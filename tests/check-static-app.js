@@ -208,6 +208,14 @@ check("member order controls exist", () => {
   assert(css.includes(".mini-btn:disabled"), "styles.css should style disabled order controls");
 });
 
+check("clear all keeps members empty after reload", () => {
+  const js = readText("app.js");
+  assert(hasFunction(js, "createEmptyState"), "app.js should include createEmptyState");
+  assert(js.includes("builtinsDisabled"), "app.js should persist the cleared built-in member state");
+  assert(js.includes("removeItem(DRAFT_KEY)"), "clear all should remove saved drafts");
+  assert(js.includes("すべてのメンバー、背景、設定をクリアしました。"), "clear all status should describe a real clear");
+});
+
 check("styles.css contains core layout and preview styles", () => {
   const css = readText("styles.css");
   assert(/\.workspace\b/.test(css), ".workspace style is missing");

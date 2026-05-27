@@ -77,8 +77,17 @@
         accentColor: "#d7b15a"
       },
       background: null,
-      people: createBuiltinMembers()
+      people: createBuiltinMembers(),
+      builtinsDisabled: false
     };
+  }
+
+  function createEmptyState() {
+    var emptyState = createDefaultState();
+    emptyState.background = null;
+    emptyState.people = [];
+    emptyState.builtinsDisabled = true;
+    return emptyState;
   }
 
   function createBuiltinMembers() {
@@ -615,14 +624,15 @@
   function clearAllData() {
     var confirmed = typeof window.confirm !== "function" || window.confirm("すべてのメンバー、背景、設定を削除します。よろしいですか？");
     if (!confirmed) return;
-    state = createDefaultState();
+    state = createEmptyState();
     syncControlsFromState();
     try {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(DRAFT_KEY);
     } catch (error) {
       // localStorage may be blocked in some browsers.
     }
-    renderAll("初期メンバーの未配置状態に戻しました。", "success");
+    saveToStorage(STORAGE_KEY, toExportState());
+    renderAll("すべてのメンバー、背景、設定をクリアしました。", "success");
   }
 
   function addSamplePeople() {
@@ -1424,6 +1434,7 @@
     return {
       version: EXPORT_VERSION,
       savedAt: new Date().toISOString(),
+      builtinsDisabled: Boolean(state.builtinsDisabled),
       meta: {
         title: state.meta.title || "",
         subtitle: state.meta.subtitle || "",
@@ -1454,6 +1465,7 @@
     var base = createDefaultState();
     var data = input || {};
     if (Array.isArray(data)) data = { people: data };
+    base.builtinsDisabled = data.builtinsDisabled === true;
 
     var meta = data.meta || {};
     base.meta.title = stringOr(meta.title, base.meta.title);
@@ -1482,7 +1494,9 @@
       };
     }) : [];
 
-    mergeBuiltinMembers(base.people);
+    if (!base.builtinsDisabled) {
+      mergeBuiltinMembers(base.people);
+    }
     ensureUniquePeople(base.people);
     return base;
   }
