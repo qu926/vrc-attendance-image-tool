@@ -52,6 +52,7 @@ const requiredFunctions = [
   "addPeopleFromFiles",
   "renderLists",
   "drawPreview",
+  "drawPersonMemo",
   "downloadPng",
   "downloadInstancePng",
   "exportJson",
@@ -216,6 +217,21 @@ check("clear all keeps members empty after reload", () => {
   assert(js.includes("すべてのメンバー、背景、設定をクリアしました。"), "clear all status should describe a real clear");
 });
 
+check("member display memo is editable, saved, and drawn instead of names", () => {
+  const js = readText("app.js");
+  const css = readText("styles.css");
+  assert(js.includes("person-card__memo"), "member cards should include a display memo input");
+  assert(js.includes("person.memo = memoInput.value"), "memo input should update person.memo");
+  assert(js.includes("memo: person.memo || \"\""), "exported member data should include memo");
+  assert(js.includes("memo: stringOr(person.memo || person.note || person.comment"), "imported member data should restore memo");
+  assert(js.includes("drawPersonMemo(ctx, person.memo"), "instance poster should draw person.memo");
+  assert(js.includes("drawPersonMemo(ctx, item.person.memo"), "other layouts should draw person.memo");
+  assert(!js.includes("drawPosterName(ctx, person.name"), "poster output must not draw person.name below cards");
+  assert(!js.includes("fitText(ctx, item.person.name || \"名前未設定\""), "grid output must not draw person.name below images");
+  assert(css.includes(".person-card__memo"), "styles.css should style member memo input");
+  assert(css.includes(".assignment-row__memo"), "styles.css should style assignment memo text");
+});
+
 check("styles.css contains core layout and preview styles", () => {
   const css = readText("styles.css");
   assert(/\.workspace\b/.test(css), ".workspace style is missing");
@@ -235,7 +251,7 @@ check("package.json has Electron scripts and includes assets", () => {
 
 check("README explains usage, built-in members, GitHub Pages, exe, JSON, and PNG", () => {
   const readme = readText("README.md");
-  ["使い方", "初期メンバー20名", "GitHub Pages", "exe", "JSON", "PNG", "インスタンスごと"].forEach((word) => {
+  ["使い方", "初期メンバー20名", "GitHub Pages", "exe", "JSON", "PNG", "インスタンスごと", "表示メモ"].forEach((word) => {
     assert(readme.includes(word), "README is missing: " + word);
   });
 });

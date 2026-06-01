@@ -96,6 +96,7 @@
         id: member.id,
         name: member.name,
         imageDataUrl: member.imageDataUrl,
+        memo: "",
         assignment: "unassigned",
         builtin: true
       };
@@ -297,6 +298,19 @@
       renderAssignmentListsOnly();
     });
 
+    var memoInput = document.createElement("input");
+    memoInput.className = "person-card__memo";
+    memoInput.type = "text";
+    memoInput.value = person.memo || "";
+    memoInput.placeholder = "表示メモ（例: 前半のみ）";
+    memoInput.setAttribute("aria-label", "画像下に表示するメモ");
+    memoInput.addEventListener("input", function () {
+      person.memo = memoInput.value;
+      scheduleSave();
+      renderPreviewSoon();
+      renderAssignmentListsOnly();
+    });
+
     var assignment = document.createElement("div");
     assignment.className = "person-card__assignment";
     assignment.textContent = assignmentLabel(person.assignment);
@@ -324,6 +338,7 @@
 
     card.appendChild(img);
     card.appendChild(nameInput);
+    card.appendChild(memoInput);
     card.appendChild(assignment);
     card.appendChild(actions);
     return card;
@@ -373,9 +388,20 @@
       img.removeAttribute("src");
     };
 
+    var details = document.createElement("span");
+    details.className = "assignment-row__details";
+
     var name = document.createElement("span");
     name.className = "assignment-row__name";
     name.textContent = person.name || "名前未設定";
+    details.appendChild(name);
+
+    if (String(person.memo || "").trim()) {
+      var memo = document.createElement("span");
+      memo.className = "assignment-row__memo";
+      memo.textContent = person.memo;
+      details.appendChild(memo);
+    }
 
     var actions = document.createElement("div");
     actions.className = "assignment-row__actions";
@@ -402,7 +428,7 @@
     }, false, false, !canReorderPerson(person.id, 1, currentAssignment)));
 
     item.appendChild(img);
-    item.appendChild(name);
+    item.appendChild(details);
     item.appendChild(actions);
     return item;
   }
@@ -454,7 +480,7 @@
     var query = (el.searchInput && el.searchInput.value ? el.searchInput.value : "").trim().toLowerCase();
     if (!query) return state.people.slice();
     return state.people.filter(function (person) {
-      return String(person.name || "").toLowerCase().indexOf(query) !== -1;
+      return String((person.name || "") + " " + (person.memo || "")).toLowerCase().indexOf(query) !== -1;
     });
   }
 
@@ -570,6 +596,7 @@
         id: createId(),
         name: stripExtension(file.name || "メンバー"),
         imageDataUrl: dataUrl,
+        memo: "",
         assignment: "unassigned"
       };
     });
@@ -652,6 +679,7 @@
         id: createId(),
         name: sample[0],
         imageDataUrl: createAvatarDataUrl(sample[0], sample[1], sample[2], index),
+        memo: "",
         assignment: index < 4 ? "instance1" : "instance2"
       });
     });
@@ -967,7 +995,7 @@
       var cardX = cellX + (cellW - cardW) / 2;
       var cardY = cellY + Math.max(0, (cellH - cardH - nameSize * 1.65) / 2);
       drawPosterCard(ctx, person, imageMap[person.id], cardX, cardY, cardW, cardH, template, accent);
-      drawPosterName(ctx, person.name || "名前未設定", cellX, cardY + cardH + nameSize * 0.32, cellW, nameSize, template);
+      drawPersonMemo(ctx, person.memo, cellX, cardY + cardH + nameSize * 0.32, cellW, nameSize, template);
     });
   }
 
@@ -1013,7 +1041,10 @@
     fitText(ctx, String(person.name || "?").charAt(0).toUpperCase(), x, y + height * 0.38, width, width * 0.42, 900, "center");
   }
 
-  function drawPosterName(ctx, name, x, y, width, fontSize, template) {
+  function drawPersonMemo(ctx, memo, x, y, width, fontSize, template) {
+    var text = String(memo || "").trim();
+    if (!text) return;
+
     ctx.save();
     ctx.shadowColor = "rgba(0,0,0,0.9)";
     ctx.shadowBlur = Math.max(4, fontSize * 0.22);
@@ -1022,16 +1053,20 @@
     ctx.fillStyle = template.text;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    drawNameLines(ctx, name, x, y, width, fontSize, 2);
+    drawMemoLines(ctx, text, x, y, width, fontSize, 2);
     ctx.restore();
   }
 
-  function drawNameLines(ctx, name, x, y, width, fontSize, maxLines) {
-    var rawLines = String(name || "").split(/\n+/).filter(Boolean);
-    var lines = rawLines.length ? rawLines.slice(0, maxLines) : ["名前未設定"];
+  function drawMemoLines(ctx, memo, x, y, width, fontSize, maxLines) {
+    var rawLines = String(memo || "").split(/\n+/).map(function (line) {
+      return line.trim();
+    }).filter(Boolean);
+    var lines = rawLines.slice(0, maxLines);
+    if (!lines.length) return;
+
     var lineHeight = fontSize * 1.16;
     lines.forEach(function (line, index) {
-      var text = line.trim();
+      var text = line;
       var size = fontSize;
       while (size > 10) {
         ctx.font = fontSpec(size, 850);
@@ -1103,8 +1138,7 @@
 
       drawAvatar(ctx, item.person, imageMap[item.person.id], avatarX, avatarY, avatarSize, template, accent, item.tag);
 
-      ctx.fillStyle = template.text;
-      fitText(ctx, item.person.name || "名前未設定", cellX, avatarY + avatarSize + fontSize * 0.45, cellW, fontSize, 750, "center");
+      drawPersonMemo(ctx, item.person.memo, cellX, avatarY + avatarSize + fontSize * 0.45, cellW, fontSize, template);
     });
   }
 
@@ -1454,6 +1488,7 @@
           id: person.id || createId(),
           name: person.name || "",
           imageDataUrl: person.imageDataUrl || "",
+          memo: person.memo || "",
           assignment: normalizeAssignment(person.assignment),
           builtin: Boolean(person.builtin)
         };
@@ -1489,6 +1524,7 @@
         id: stringOr(person.id, createId()),
         name: stringOr(person.name, "メンバー"),
         imageDataUrl: stringOr(person.imageDataUrl || person.dataUrl || person.image, ""),
+        memo: stringOr(person.memo || person.note || person.comment, ""),
         assignment: normalizeAssignment(person.assignment || person.group || person.instance),
         builtin: Boolean(person.builtin)
       };
