@@ -44,9 +44,6 @@ const requiredDomIds = [
   "sampleBtn",
   "saveDraftBtn",
   "loadDraftBtn",
-  "remoteUrlInput",
-  "remoteKeyInput",
-  "remoteDocInput",
   "remoteAutoSyncInput",
   "remoteLoadBtn",
   "remoteSaveBtn",
@@ -248,7 +245,12 @@ check("shared DB sync is optional and API-backed", () => {
   const js = readText("app.js");
   const api = readText(path.join("api", "data.js"));
   assert(html.includes("共有DB"), "index.html should expose shared DB controls");
-  assert(js.includes("REMOTE_CONFIG_KEY"), "app.js should persist remote sync settings locally");
+  assert(!html.includes("remoteUrlInput"), "shared DB should not require users to enter an API URL");
+  assert(!html.includes("remoteDocInput"), "shared DB should not require users to enter a shared ID");
+  assert(!html.includes("remoteKeyInput"), "shared DB should not require users to enter a passphrase");
+  assert(js.includes("REMOTE_API_URL"), "app.js should define a fixed remote API URL setting");
+  assert(js.includes("REMOTE_SYNC_KEY"), "app.js should define a fixed remote sync key");
+  assert(js.includes("REMOTE_AUTO_SYNC_KEY"), "app.js should persist only the auto sync preference");
   assert(js.includes("x-sync-pass"), "app.js should send a shared sync key to the API");
   assert(js.includes("window.fetch(remoteEndpoint()"), "app.js should use fetch for shared DB sync");
   assert(js.includes("remoteSaveSuspended"), "app.js should prevent remote load/save loops");

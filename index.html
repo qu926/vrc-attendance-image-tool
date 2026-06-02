@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>VRCイベント出席画像ツール</title>
-    <link rel="stylesheet" href="styles.css?v=20260602-shared-db">
-    <script src="app.js?v=20260602-shared-db" defer></script>
+    <link rel="stylesheet" href="styles.css?v=20260602-shared-db-fixed">
+    <script src="app.js?v=20260602-shared-db-fixed" defer></script>
   </head>
   <body>
     <header class="app-header">
@@ -122,20 +122,6 @@
           <div class="section-heading">
             <h2>共有DB</h2>
           </div>
-          <div class="field-stack">
-            <label class="field">
-              <span>共有API URL</span>
-              <input id="remoteUrlInput" type="url" placeholder="例: https://example.vercel.app/api/data">
-            </label>
-            <label class="field">
-              <span>共有ID</span>
-              <input id="remoteDocInput" type="text" placeholder="例: abyss-event">
-            </label>
-            <label class="field">
-              <span>合言葉</span>
-              <input id="remoteKeyInput" type="password" placeholder="任意">
-            </label>
-          </div>
           <label class="check-field">
             <input id="remoteAutoSyncInput" type="checkbox">
             <span>自動同期する</span>
@@ -144,7 +130,7 @@
             <button id="remoteLoadBtn" class="btn secondary" type="button">共有DBから読込</button>
             <button id="remoteSaveBtn" class="btn primary" type="button">共有DBへ保存</button>
           </div>
-          <p class="hint">別PCでも同じAPI URL、共有ID、合言葉を入れると同じデータを読み書きできます。</p>
+          <p class="hint">Vercel版では、別PCでも同じ共有DBのデータを読み書きできます。</p>
         </section>
       </aside>
 
