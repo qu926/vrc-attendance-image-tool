@@ -1,0 +1,5 @@
+{
+  "framework": null,
+  "buildCommand": "echo \"Skipping build on Vercel\"",
+  "outputDirectory": "./"
+}

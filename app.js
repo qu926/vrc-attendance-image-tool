@@ -3,7 +3,8 @@
 
   var STORAGE_KEY = "vrcAttendanceImageTool.state.v6";
   var DRAFT_KEY = "vrcAttendanceImageTool.draft.v6";
-  var EXPORT_VERSION = 2;
+  var REMOTE_CONFIG_KEY = "vrcAttendanceImageTool.remoteConfig.v1";
+  var EXPORT_VERSION = 3;
   var BUILTIN_MEMBERS = [
     { id: "builtin-mitsuru", name: "海釣", imageDataUrl: "assets/members/mitsuru.png" },
     { id: "builtin-justaway", name: "ジャスタウェイ", imageDataUrl: "assets/members/justaway.png" },
@@ -54,6 +55,12 @@
     "sampleBtn",
     "saveDraftBtn",
     "loadDraftBtn",
+    "remoteUrlInput",
+    "remoteKeyInput",
+    "remoteDocInput",
+    "remoteAutoSyncInput",
+    "remoteLoadBtn",
+    "remoteSaveBtn",
     "statusMessage"
   ];
 
@@ -62,7 +69,10 @@
   var renderToken = 0;
   var saveTimer = 0;
   var previewTimer = 0;
+  var remoteSaveTimer = 0;
+  var remoteSaveSuspended = false;
   var state = createDefaultState();
+  var remoteConfig = createRemoteConfig();
 
   function createDefaultState() {
     return {
@@ -105,10 +115,17 @@
 
   function init() {
     cacheElements();
+    remoteConfig = loadRemoteConfig();
+    remoteSaveSuspended = true;
     state = normalizeState(loadFromStorage(STORAGE_KEY) || createDefaultState());
     bindControls();
     syncControlsFromState();
+    syncRemoteControls();
     renderAll("準備できました。画像を追加してインスタンスを選んでください。", "success");
+    remoteSaveSuspended = false;
+    if (remoteConfig.autoSync && isRemoteConfigured()) {
+      loadRemoteState(false);
+    }
   }
 
   function cacheElements() {
@@ -171,6 +188,71 @@
     onClick(el.sampleBtn, addSamplePeople);
     onClick(el.saveDraftBtn, saveDraft);
     onClick(el.loadDraftBtn, loadDraft);
+    onClick(el.remoteLoadBtn, function () {
+      saveRemoteConfigFromControls();
+      loadRemoteState(true);
+    });
+    onClick(el.remoteSaveBtn, function () {
+      saveRemoteConfigFromControls();
+      saveRemoteState(true);
+    });
+    bindRemoteConfigInput(el.remoteUrlInput);
+    bindRemoteConfigInput(el.remoteKeyInput);
+    bindRemoteConfigInput(el.remoteDocInput);
+    if (el.remoteAutoSyncInput) {
+      el.remoteAutoSyncInput.addEventListener("change", function () {
+        saveRemoteConfigFromControls();
+        if (remoteConfig.autoSync && isRemoteConfigured()) {
+          saveRemoteState(false);
+        }
+      });
+    }
+  }
+
+  function bindRemoteConfigInput(input) {
+    if (!input) return;
+    input.addEventListener("change", saveRemoteConfigFromControls);
+  }
+
+  function createRemoteConfig() {
+    return {
+      apiUrl: "",
+      sharedKey: "vrc-attendance",
+      pass: "",
+      autoSync: false
+    };
+  }
+
+  function loadRemoteConfig() {
+    var saved = loadFromStorage(REMOTE_CONFIG_KEY) || {};
+    return {
+      apiUrl: stringOr(saved.apiUrl || saved.url, ""),
+      sharedKey: stringOr(saved.sharedKey || saved.docId || saved.key, "vrc-attendance"),
+      pass: stringOr(saved.pass || saved.password, ""),
+      autoSync: saved.autoSync === true
+    };
+  }
+
+  function saveRemoteConfig() {
+    saveToStorage(REMOTE_CONFIG_KEY, remoteConfig);
+  }
+
+  function syncRemoteControls() {
+    if (el.remoteUrlInput) el.remoteUrlInput.value = remoteConfig.apiUrl || "";
+    if (el.remoteDocInput) el.remoteDocInput.value = remoteConfig.sharedKey || "vrc-attendance";
+    if (el.remoteKeyInput) el.remoteKeyInput.value = remoteConfig.pass || "";
+    if (el.remoteAutoSyncInput) el.remoteAutoSyncInput.checked = Boolean(remoteConfig.autoSync);
+  }
+
+  function saveRemoteConfigFromControls() {
+    remoteConfig = {
+      apiUrl: el.remoteUrlInput ? el.remoteUrlInput.value.trim() : remoteConfig.apiUrl,
+      sharedKey: el.remoteDocInput ? el.remoteDocInput.value.trim() : remoteConfig.sharedKey,
+      pass: el.remoteKeyInput ? el.remoteKeyInput.value.trim() : remoteConfig.pass,
+      autoSync: el.remoteAutoSyncInput ? el.remoteAutoSyncInput.checked : remoteConfig.autoSync
+    };
+    if (!remoteConfig.sharedKey) remoteConfig.sharedKey = "vrc-attendance";
+    saveRemoteConfig();
   }
 
   function bindMetaInput(input, key) {
@@ -1444,6 +1526,118 @@
     saveTimer = window.setTimeout(function () {
       saveToStorage(STORAGE_KEY, toExportState());
     }, 160);
+    scheduleRemoteSave();
+  }
+
+  function scheduleRemoteSave() {
+    if (remoteSaveSuspended || !remoteConfig.autoSync || !isRemoteConfigured()) return;
+    window.clearTimeout(remoteSaveTimer);
+    remoteSaveTimer = window.setTimeout(function () {
+      saveRemoteState(false);
+    }, 1200);
+  }
+
+  function isRemoteConfigured() {
+    return Boolean((remoteConfig.apiUrl || "").trim() || location.protocol !== "file:") && Boolean((remoteConfig.sharedKey || "").trim());
+  }
+
+  function remoteSyncPass() {
+    var base = sanitizeRemoteKey(remoteConfig.sharedKey || "vrc-attendance");
+    var pass = sanitizeRemoteKey(remoteConfig.pass || "");
+    return pass ? base + "_" + pass : base;
+  }
+
+  function sanitizeRemoteKey(value) {
+    return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "").trim() || "vrc-attendance";
+  }
+
+  function remoteEndpoint() {
+    var rawUrl = String(remoteConfig.apiUrl || "").trim();
+    if (!rawUrl) return "api/data";
+    return rawUrl;
+  }
+
+  function remoteHeaders(extra) {
+    var headers = {
+      "Content-Type": "application/json",
+      "x-sync-pass": remoteSyncPass()
+    };
+    Object.keys(extra || {}).forEach(function (key) {
+      headers[key] = extra[key];
+    });
+    return headers;
+  }
+
+  function saveRemoteState(manual) {
+    if (!isRemoteConfigured()) {
+      if (manual) setStatus("共有DBのAPI URLまたは共有IDを設定してください。", "error");
+      return Promise.resolve(false);
+    }
+    window.clearTimeout(remoteSaveTimer);
+    var payload = toExportState();
+    payload.remote = {
+      sharedKey: remoteConfig.sharedKey || "vrc-attendance",
+      clientId: getClientId(),
+      updatedAt: new Date().toISOString()
+    };
+
+    return window.fetch(remoteEndpoint(), {
+      method: "POST",
+      headers: remoteHeaders({ "x-allow-empty-overwrite": "1" }),
+      body: JSON.stringify(payload)
+    }).then(function (response) {
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      if (manual) setStatus("共有DBへ保存しました。別PCでは「共有DBから読込」で同じ内容を見られます。", "success");
+      return true;
+    }).catch(function () {
+      if (manual) setStatus("共有DBへの保存に失敗しました。API URLと共有キーを確認してください。", "error");
+      return false;
+    });
+  }
+
+  function loadRemoteState(manual) {
+    if (!isRemoteConfigured()) {
+      if (manual) setStatus("共有DBのAPI URLまたは共有IDを設定してください。", "error");
+      return Promise.resolve(false);
+    }
+    return window.fetch(remoteEndpoint(), {
+      method: "GET",
+      headers: remoteHeaders()
+    }).then(function (response) {
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      return response.json();
+    }).then(function (remoteData) {
+      if (!remoteData || !Object.keys(remoteData).length) {
+        if (manual) setStatus("共有DBに保存済みデータがありません。先に「共有DBへ保存」を押してください。", "error");
+        return false;
+      }
+      remoteSaveSuspended = true;
+      state = normalizeState(remoteData);
+      syncControlsFromState();
+      renderAll("共有DBから読み込みました。", "success");
+      remoteSaveSuspended = false;
+      saveToStorage(STORAGE_KEY, toExportState());
+      return true;
+    }).catch(function () {
+      remoteSaveSuspended = false;
+      if (manual) setStatus("共有DBからの読み込みに失敗しました。API URLと共有キーを確認してください。", "error");
+      return false;
+    });
+  }
+
+  function getClientId() {
+    var key = "vrcAttendanceImageTool.clientId.v1";
+    var saved = "";
+    try {
+      saved = window.localStorage.getItem(key) || "";
+      if (!saved) {
+        saved = createId();
+        window.localStorage.setItem(key, saved);
+      }
+    } catch (error) {
+      saved = createId();
+    }
+    return saved;
   }
 
   function saveToStorage(key, value) {

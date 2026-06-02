@@ -219,6 +219,22 @@ button {
   padding: 4px;
 }
 
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.check-field input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
 .file-field,
 .file-drop {
   margin-top: 10px;

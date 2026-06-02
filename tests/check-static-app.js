@@ -12,7 +12,9 @@ const requiredFiles = [
   "app.js",
   "README.md",
   "package.json",
-  "electron-main.js"
+  "electron-main.js",
+  "vercel.json",
+  path.join("api", "data.js")
 ];
 
 const requiredDomIds = [
@@ -42,6 +44,12 @@ const requiredDomIds = [
   "sampleBtn",
   "saveDraftBtn",
   "loadDraftBtn",
+  "remoteUrlInput",
+  "remoteKeyInput",
+  "remoteDocInput",
+  "remoteAutoSyncInput",
+  "remoteLoadBtn",
+  "remoteSaveBtn",
   "statusMessage"
 ];
 
@@ -59,6 +67,9 @@ const requiredFunctions = [
   "importJsonFile",
   "saveDraft",
   "loadDraft",
+  "saveRemoteState",
+  "loadRemoteState",
+  "scheduleRemoteSave",
   "resetAssignments",
   "clearAllData",
   "addSamplePeople"
@@ -232,6 +243,27 @@ check("member display memo is editable, saved, and drawn instead of names", () =
   assert(css.includes(".assignment-row__memo"), "styles.css should style assignment memo text");
 });
 
+check("shared DB sync is optional and API-backed", () => {
+  const html = readText("index.html");
+  const js = readText("app.js");
+  const api = readText(path.join("api", "data.js"));
+  assert(html.includes("共有DB"), "index.html should expose shared DB controls");
+  assert(js.includes("REMOTE_CONFIG_KEY"), "app.js should persist remote sync settings locally");
+  assert(js.includes("x-sync-pass"), "app.js should send a shared sync key to the API");
+  assert(js.includes("window.fetch(remoteEndpoint()"), "app.js should use fetch for shared DB sync");
+  assert(js.includes("remoteSaveSuspended"), "app.js should prevent remote load/save loops");
+  assert(api.includes("KV_REST_API_URL"), "api/data.js should use Vercel KV URL from environment");
+  assert(api.includes("KV_REST_API_TOKEN"), "api/data.js should use Vercel KV token from environment");
+  assert(api.includes("vrcAttendanceImageTool_"), "api/data.js should store this app under its own KV namespace");
+});
+
+check("shared DB implementation avoids frontend secrets and Node-only browser code", () => {
+  const frontend = readText("index.html") + "\n" + readText("app.js");
+  ["SERVICE_ROLE", "PRIVATE_KEY", "KV_REST_API_TOKEN", "process.env", "require(", "ipcRenderer"].forEach((word) => {
+    assert(!frontend.includes(word), "frontend must not contain: " + word);
+  });
+});
+
 check("styles.css contains core layout and preview styles", () => {
   const css = readText("styles.css");
   assert(/\.workspace\b/.test(css), ".workspace style is missing");
@@ -251,7 +283,7 @@ check("package.json has Electron scripts and includes assets", () => {
 
 check("README explains usage, built-in members, GitHub Pages, exe, JSON, and PNG", () => {
   const readme = readText("README.md");
-  ["使い方", "初期メンバー20名", "GitHub Pages", "exe", "JSON", "PNG", "インスタンスごと", "表示メモ"].forEach((word) => {
+  ["使い方", "初期メンバー20名", "GitHub Pages", "exe", "JSON", "PNG", "インスタンスごと", "表示メモ", "共有DB", "Vercel KV"].forEach((word) => {
     assert(readme.includes(word), "README is missing: " + word);
   });
 });
