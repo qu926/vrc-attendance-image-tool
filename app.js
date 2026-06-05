@@ -60,6 +60,7 @@
     "remoteAutoSyncInput",
     "remoteLoadBtn",
     "remoteSaveBtn",
+    "remoteHint",
     "statusMessage"
   ];
 
@@ -210,7 +211,18 @@
   }
 
   function syncRemoteControls() {
-    if (el.remoteAutoSyncInput) el.remoteAutoSyncInput.checked = Boolean(remoteAutoSync);
+    var available = isRemoteConfigured();
+    if (el.remoteAutoSyncInput) {
+      el.remoteAutoSyncInput.checked = available && Boolean(remoteAutoSync);
+      el.remoteAutoSyncInput.disabled = !available;
+    }
+    if (el.remoteLoadBtn) el.remoteLoadBtn.disabled = !available;
+    if (el.remoteSaveBtn) el.remoteSaveBtn.disabled = !available;
+    if (el.remoteHint) {
+      el.remoteHint.textContent = available
+        ? "別PCでも同じ共有DBのデータを読み書きできます。"
+        : "GitHub Pages版では共有DB APIが動かないため、Vercel版を開いてください。";
+    }
   }
 
   function saveRemoteAutoSync() {
@@ -1500,7 +1512,18 @@
   }
 
   function isRemoteConfigured() {
-    return Boolean(REMOTE_API_URL || location.protocol !== "file:");
+    return Boolean((REMOTE_API_URL || "").trim() || hasSameOriginRemoteApi());
+  }
+
+  function hasSameOriginRemoteApi() {
+    var hostname = String(location.hostname || "").toLowerCase();
+    if (location.protocol === "file:") return false;
+    if (!hostname) return false;
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return false;
+    if (hostname.indexOf("github.io") !== -1) return false;
+    if (hostname.indexOf("netlify.app") !== -1) return false;
+    if (hostname.indexOf("pages.dev") !== -1) return false;
+    return true;
   }
 
   function remoteSyncPass() {
@@ -1531,6 +1554,7 @@
   function saveRemoteState(manual) {
     if (!isRemoteConfigured()) {
       if (manual) setStatus("共有DBはVercel版で使えます。GitHub PagesではAPIがないため保存できません。", "error");
+      syncRemoteControls();
       return Promise.resolve(false);
     }
     window.clearTimeout(remoteSaveTimer);
@@ -1558,6 +1582,7 @@
   function loadRemoteState(manual) {
     if (!isRemoteConfigured()) {
       if (manual) setStatus("共有DBはVercel版で使えます。GitHub PagesではAPIがないため読み込めません。", "error");
+      syncRemoteControls();
       return Promise.resolve(false);
     }
     return window.fetch(remoteEndpoint(), {

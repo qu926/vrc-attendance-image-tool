@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>VRCイベント出席画像ツール</title>
-    <link rel="stylesheet" href="styles.css?v=20260602-shared-db-fixed">
-    <script src="app.js?v=20260602-shared-db-fixed" defer></script>
+    <link rel="stylesheet" href="styles.css?v=20260605-shared-host-fix">
+    <script src="app.js?v=20260605-shared-host-fix" defer></script>
   </head>
   <body>
     <header class="app-header">
@@ -130,7 +130,7 @@
             <button id="remoteLoadBtn" class="btn secondary" type="button">共有DBから読込</button>
             <button id="remoteSaveBtn" class="btn primary" type="button">共有DBへ保存</button>
           </div>
-          <p class="hint">Vercel版では、別PCでも同じ共有DBのデータを読み書きできます。</p>
+          <p id="remoteHint" class="hint">Vercel版では、別PCでも同じ共有DBのデータを読み書きできます。</p>
         </section>
       </aside>
 

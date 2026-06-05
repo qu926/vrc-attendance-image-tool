@@ -47,6 +47,7 @@ const requiredDomIds = [
   "remoteAutoSyncInput",
   "remoteLoadBtn",
   "remoteSaveBtn",
+  "remoteHint",
   "statusMessage"
 ];
 
@@ -67,6 +68,7 @@ const requiredFunctions = [
   "saveRemoteState",
   "loadRemoteState",
   "scheduleRemoteSave",
+  "hasSameOriginRemoteApi",
   "resetAssignments",
   "clearAllData",
   "addSamplePeople"
@@ -251,6 +253,9 @@ check("shared DB sync is optional and API-backed", () => {
   assert(js.includes("REMOTE_API_URL"), "app.js should define a fixed remote API URL setting");
   assert(js.includes("REMOTE_SYNC_KEY"), "app.js should define a fixed remote sync key");
   assert(js.includes("REMOTE_AUTO_SYNC_KEY"), "app.js should persist only the auto sync preference");
+  assert(js.includes("hasSameOriginRemoteApi"), "app.js should detect whether the current host can serve the API");
+  assert(js.includes("github.io"), "app.js should avoid calling /api/data on GitHub Pages");
+  assert(js.includes("remoteLoadBtn.disabled"), "shared DB buttons should be disabled when the API is unavailable");
   assert(js.includes("x-sync-pass"), "app.js should send a shared sync key to the API");
   assert(js.includes("window.fetch(remoteEndpoint()"), "app.js should use fetch for shared DB sync");
   assert(js.includes("remoteSaveSuspended"), "app.js should prevent remote load/save loops");
