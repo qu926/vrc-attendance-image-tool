@@ -3,7 +3,6 @@
 
   var STORAGE_KEY = "vrcAttendanceImageTool.state.v6";
   var DRAFT_KEY = "vrcAttendanceImageTool.draft.v6";
-  var REMOTE_AUTO_SYNC_KEY = "vrcAttendanceImageTool.remoteAutoSync.v1";
   var REMOTE_API_URL = "";
   var REMOTE_SYNC_KEY = "vrc-attendance-image-tool";
   var EXPORT_VERSION = 3;
@@ -57,7 +56,6 @@
     "sampleBtn",
     "saveDraftBtn",
     "loadDraftBtn",
-    "remoteAutoSyncInput",
     "remoteLoadBtn",
     "remoteSaveBtn",
     "remoteHint",
@@ -70,9 +68,12 @@
   var saveTimer = 0;
   var previewTimer = 0;
   var remoteSaveTimer = 0;
+  var remotePollTimer = 0;
   var remoteSaveSuspended = false;
+  var remoteSaveInFlight = false;
+  var remoteLocalDirty = false;
+  var remoteLastSeenUpdatedAt = "";
   var state = createDefaultState();
-  var remoteAutoSync = false;
 
   function createDefaultState() {
     return {
@@ -115,7 +116,6 @@
 
   function init() {
     cacheElements();
-    remoteAutoSync = loadRemoteAutoSync();
     remoteSaveSuspended = true;
     state = normalizeState(loadFromStorage(STORAGE_KEY) || createDefaultState());
     bindControls();
@@ -123,8 +123,8 @@
     syncRemoteControls();
     renderAll("準備できました。画像を追加してインスタンスを選んでください。", "success");
     remoteSaveSuspended = false;
-    if (remoteAutoSync && isRemoteConfigured()) {
-      loadRemoteState(false);
+    if (isRemoteConfigured()) {
+      loadRemoteState(false).then(startRemoteSyncLoop);
     }
   }
 
@@ -194,39 +194,17 @@
     onClick(el.remoteSaveBtn, function () {
       saveRemoteState(true);
     });
-    if (el.remoteAutoSyncInput) {
-      el.remoteAutoSyncInput.addEventListener("change", function () {
-        remoteAutoSync = el.remoteAutoSyncInput.checked;
-        saveRemoteAutoSync();
-        if (remoteAutoSync && isRemoteConfigured()) {
-          saveRemoteState(false);
-        }
-      });
-    }
-  }
-
-  function loadRemoteAutoSync() {
-    var saved = loadFromStorage(REMOTE_AUTO_SYNC_KEY);
-    return saved === true;
   }
 
   function syncRemoteControls() {
     var available = isRemoteConfigured();
-    if (el.remoteAutoSyncInput) {
-      el.remoteAutoSyncInput.checked = available && Boolean(remoteAutoSync);
-      el.remoteAutoSyncInput.disabled = !available;
-    }
     if (el.remoteLoadBtn) el.remoteLoadBtn.disabled = !available;
     if (el.remoteSaveBtn) el.remoteSaveBtn.disabled = !available;
     if (el.remoteHint) {
       el.remoteHint.textContent = available
-        ? "別PCでも同じ共有DBのデータを読み書きできます。"
+        ? "開いている全員が同じ共有DBと自動同期されます。"
         : "GitHub Pages版では共有DB APIが動かないため、Vercel版を開いてください。";
     }
-  }
-
-  function saveRemoteAutoSync() {
-    saveToStorage(REMOTE_AUTO_SYNC_KEY, Boolean(remoteAutoSync));
   }
 
   function bindMetaInput(input, key) {
@@ -1504,11 +1482,21 @@
   }
 
   function scheduleRemoteSave() {
-    if (remoteSaveSuspended || !remoteAutoSync || !isRemoteConfigured()) return;
+    if (remoteSaveSuspended || !isRemoteConfigured()) return;
+    remoteLocalDirty = true;
     window.clearTimeout(remoteSaveTimer);
     remoteSaveTimer = window.setTimeout(function () {
       saveRemoteState(false);
     }, 1200);
+  }
+
+  function startRemoteSyncLoop() {
+    window.clearInterval(remotePollTimer);
+    if (!isRemoteConfigured()) return;
+    remotePollTimer = window.setInterval(function () {
+      if (document.hidden || remoteSaveSuspended || remoteSaveInFlight || remoteLocalDirty) return;
+      loadRemoteState(false);
+    }, 12000);
   }
 
   function isRemoteConfigured() {
@@ -1564,6 +1552,7 @@
       clientId: getClientId(),
       updatedAt: new Date().toISOString()
     };
+    remoteSaveInFlight = true;
 
     return window.fetch(remoteEndpoint(), {
       method: "POST",
@@ -1571,11 +1560,22 @@
       body: JSON.stringify(payload)
     }).then(function (response) {
       if (!response.ok) throw new Error("HTTP " + response.status);
+      remoteLastSeenUpdatedAt = payload.remote.updatedAt;
+      remoteLocalDirty = false;
       if (manual) setStatus("共有DBへ保存しました。別PCでは「共有DBから読込」で同じ内容を見られます。", "success");
       return true;
     }).catch(function () {
       if (manual) setStatus("共有DBへの保存に失敗しました。Vercel KVの設定を確認してください。", "error");
+      if (!manual && remoteLocalDirty && isRemoteConfigured()) {
+        window.clearTimeout(remoteSaveTimer);
+        remoteSaveTimer = window.setTimeout(function () {
+          saveRemoteState(false);
+        }, 10000);
+      }
       return false;
+    }).then(function (result) {
+      remoteSaveInFlight = false;
+      return result;
     });
   }
 
@@ -1596,11 +1596,19 @@
         if (manual) setStatus("共有DBに保存済みデータがありません。先に「共有DBへ保存」を押してください。", "error");
         return false;
       }
+      var remoteUpdatedAt = remoteData.remote && remoteData.remote.updatedAt ? String(remoteData.remote.updatedAt) : String(remoteData.savedAt || "");
+      if (!manual && remoteUpdatedAt && remoteUpdatedAt === remoteLastSeenUpdatedAt) {
+        return true;
+      }
+      if (!manual && remoteLocalDirty) {
+        return false;
+      }
       remoteSaveSuspended = true;
       state = normalizeState(remoteData);
       syncControlsFromState();
-      renderAll("共有DBから読み込みました。", "success");
+      renderAll(manual ? "共有DBから読み込みました。" : "", manual ? "success" : "");
       remoteSaveSuspended = false;
+      remoteLastSeenUpdatedAt = remoteUpdatedAt;
       saveToStorage(STORAGE_KEY, toExportState());
       return true;
     }).catch(function () {

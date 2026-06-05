@@ -44,7 +44,6 @@ const requiredDomIds = [
   "sampleBtn",
   "saveDraftBtn",
   "loadDraftBtn",
-  "remoteAutoSyncInput",
   "remoteLoadBtn",
   "remoteSaveBtn",
   "remoteHint",
@@ -68,6 +67,7 @@ const requiredFunctions = [
   "saveRemoteState",
   "loadRemoteState",
   "scheduleRemoteSave",
+  "startRemoteSyncLoop",
   "hasSameOriginRemoteApi",
   "resetAssignments",
   "clearAllData",
@@ -242,7 +242,7 @@ check("member display memo is editable, saved, and drawn instead of names", () =
   assert(css.includes(".assignment-row__memo"), "styles.css should style assignment memo text");
 });
 
-check("shared DB sync is optional and API-backed", () => {
+check("shared DB sync is always on when API-backed", () => {
   const html = readText("index.html");
   const js = readText("app.js");
   const api = readText(path.join("api", "data.js"));
@@ -250,9 +250,15 @@ check("shared DB sync is optional and API-backed", () => {
   assert(!html.includes("remoteUrlInput"), "shared DB should not require users to enter an API URL");
   assert(!html.includes("remoteDocInput"), "shared DB should not require users to enter a shared ID");
   assert(!html.includes("remoteKeyInput"), "shared DB should not require users to enter a passphrase");
+  assert(!html.includes("remoteAutoSyncInput"), "shared DB should not require users to toggle auto sync");
+  assert(!js.includes("remoteAutoSync"), "shared DB auto sync should not be optional in app.js");
+  assert(!js.includes("REMOTE_AUTO_SYNC_KEY"), "shared DB auto sync preference should not be stored");
   assert(js.includes("REMOTE_API_URL"), "app.js should define a fixed remote API URL setting");
   assert(js.includes("REMOTE_SYNC_KEY"), "app.js should define a fixed remote sync key");
-  assert(js.includes("REMOTE_AUTO_SYNC_KEY"), "app.js should persist only the auto sync preference");
+  assert(js.includes("startRemoteSyncLoop"), "app.js should poll for shared DB updates");
+  assert(js.includes("window.setInterval"), "app.js should periodically load shared DB updates");
+  assert(js.includes("remoteLocalDirty"), "app.js should avoid overwriting unsaved local edits while polling");
+  assert(js.includes("remoteLastSeenUpdatedAt"), "app.js should skip already-seen remote updates");
   assert(js.includes("hasSameOriginRemoteApi"), "app.js should detect whether the current host can serve the API");
   assert(js.includes("github.io"), "app.js should avoid calling /api/data on GitHub Pages");
   assert(js.includes("remoteLoadBtn.disabled"), "shared DB buttons should be disabled when the API is unavailable");
